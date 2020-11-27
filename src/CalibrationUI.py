@@ -40,7 +40,7 @@ class CalibrationUI(QWidget):
 		self.camera_display = {'l': self._create_display(), 'r': self._create_display()}				#Show left and right video inputs
 		self.checkboxes = {'l':  QCheckBox("Show chessboard corners"), 'r': QCheckBox("Show chessboard corners")}	#Find and draw chessboard corners in every frame
 		self.line_edit = {												#Inputs for image capture configuration
-			'path' : QLineEdit("imgs/calibration"),
+			'path' : QLineEdit(kargs['default_calibration_path']),
 			'file_template' : QLineEdit("camera{}_{}.png"),
 			'current_index' : QLineEdit("1"),
 			'capture_timeout' : QLineEdit("3")

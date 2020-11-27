@@ -66,7 +66,7 @@ class DisparityUI(QWidget):
 		reconstruct_3d = QPushButton("Reconstruir 3D")						#3D reconstruction and rendering
 		save_current_button = QPushButton("Save current")					#Save current images and params
 
-		self.save_current_path = QLineEdit("imgs/test")						#Save path input field
+		self.save_current_path = QLineEdit(kargs['default_test_path'])				#Save path input field
 													#Images are saved with the timestamp in the name to avoid overwritting
 
 		#Add callbacks and props

@@ -35,8 +35,8 @@ class App(QMainWindow):
 		self.tabs.addTab(self.offline, "Offline tests")
 
 		#Add the layouts
-		self.tabs.setTabEnabled(1, False)	#Disable disparity & offline tabs util calibration is made
-		self.tabs.setTabEnabled(2, False)
+		self.tabs.setTabEnabled(1, kargs['unlock_tabs'])	#Disable disparity & offline tabs util calibration is made
+		self.tabs.setTabEnabled(2, kargs['unlock_tabs'])
 		tabs_parent_layout.addWidget(self.tabs)
 		tabs_parent.setLayout(tabs_parent_layout)
 		self.setCentralWidget(tabs_parent)
@@ -61,6 +61,9 @@ if __name__ == '__main__':
 	parser.add_argument('--chessboard-columns', default=9, type=int, help="Number of inside columns in the chessboard")
 	parser.add_argument('--chessboard-square-size', default=1.0, type=float, help="Size of the chessboard squares in the units we want the camera matrix")
 	parser.add_argument('--max-frame-rate', default=60, type=int, help="Max frame rate in capture mode. Disparity mode is fixed at 1fps")
+	parser.add_argument('--default-calibration-path', type=str, default="imgs/calibration", help="Default path to store in/load from calibration images")
+	parser.add_argument('--default-test-path', type=str, default="imgs/test", help="Default path to store in/load from test images")
+	parser.add_argument('--unlock-tabs', default=False, action="store_true", help="No-lock tabs until calibration")
 	parser.add_argument('-v', '--verbose', default=False, action="store_true")
 	args = parser.parse_args()
 

@@ -4,6 +4,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import numpy as np
+import open3d as o3d
 
 #Get all available cameras by trying to open them
 def list_cameras(max_tests = 4):
@@ -66,6 +67,11 @@ def create_slider(min_value, max_value, tick_interval = 5, default_value = None,
 	if default_value is not None: slider.setValue(default_value)
 	return slider
 
+def create_combobox(options = []):
+	cbox = QComboBox()
+	cbox.addItems(options)
+	return cbox
+
 #Set a img in a given display. If img is not numpy.array, set the background
 def update_display(w, h, display, img):
 	if isinstance(img, np.ndarray): qp = img2pixmap(img, w, h)
@@ -76,13 +82,25 @@ def update_display(w, h, display, img):
 	display.setPixmap(qp)
 
 #Create a QGroupBox with the given objects and a title for each one
-def create_object_group(group_title, objects, col_span = 1):
+def create_object_group(group_title, objects, cols = 1, fullwidth = []):
 	group = QGroupBox(group_title)
 	groupLayout = QGridLayout()
 
+#	for i, (name, obj) in enumerate(objects.items()):
+#		groupLayout.addWidget(QLabel(name), 2*i, 0, 1, cols, alignment=Qt.AlignTop)
+#		groupLayout.addWidget(obj, 2*i + 1, 0, 1, cols, alignment=Qt.AlignTop)
+	offset = 0
 	for i, (name, obj) in enumerate(objects.items()):
-		groupLayout.addWidget(QLabel(name), 2*i, 0, 1, col_span, alignment=Qt.AlignTop)
-		groupLayout.addWidget(obj, 2*i + 1, 0, 1, col_span, alignment=Qt.AlignTop)
+		idx = i + offset
+		if i not in fullwidth:
+			if not isinstance(obj, QCheckBox):
+				groupLayout.addWidget(QLabel(name), 2*(idx//cols), idx%cols, 1, 1, alignment=Qt.AlignTop)
+			groupLayout.addWidget(obj, 2*(idx//cols) + 1, idx%cols, 1, 1, alignment=Qt.AlignTop)
+		else:
+			if not isinstance(obj, QCheckBox):
+				groupLayout.addWidget(QLabel(name), 2*(idx//cols), 0, 1, cols, alignment=Qt.AlignTop)
+			groupLayout.addWidget(obj, 2*(idx//cols) + 1, 0, 1, cols, alignment=Qt.AlignTop)
+			offset += (cols - 1)
 
 	group.setLayout(groupLayout)
 	return group
@@ -90,3 +108,39 @@ def create_object_group(group_title, objects, col_span = 1):
 #Normalize disparity map to allow visualization
 def disp2img(disp, minDisparity, numDisparities):
 	return ((disp.astype(np.float32) / 16.0) - minDisparity) / numDisparities
+
+#Undo above operation
+def img2disp(img, minDisparity, numDisparities):
+#	print(type(img[0][0]))
+	return np.array(((img * numDisparities) + minDisparity) * 16, dtype=np.uint8)
+
+
+#Get slider value/combobox index
+def get_object_value(obj):
+	if isinstance(obj, QSlider): return obj.value()
+	if isinstance(obj, QComboBox): return obj.currentIndex()
+
+#Set slider/combobox value
+def update_object_value(obj, value):
+	if isinstance(obj, QSlider): obj.setValue(value)
+	if isinstance(obj, QComboBox): obj.setCurrentIndex(value)
+
+#Set slider/combobox callbacks
+def set_object_callback(obj, callback):
+	if isinstance(obj, QSlider): obj.valueChanged.connect(lambda: callback())
+	if isinstance(obj, QComboBox): obj.currentIndexChanged.connect(lambda: callback())
+
+
+#3D point cloud
+def show_point_cloud(img, disp, Q):
+	points = cv.reprojectImageTo3D(disp, Q)
+	colors = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+	mask = disp > disp.min()
+
+	p = o3d.utility.Vector3dVector(points[mask])
+	c = o3d.utility.Vector3dVector(colors[mask] / 255)
+
+	pcd = o3d.geometry.PointCloud()
+	pcd.points = p
+	pcd.colors = c
+	o3d.visualization.draw_geometries([pcd])
