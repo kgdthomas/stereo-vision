@@ -83,21 +83,18 @@ def update_display(w, h, display, img):
 
 #Create a QGroupBox with the given objects and a title for each one
 def create_object_group(group_title, objects, cols = 1, fullwidth = []):
-	group = QGroupBox(group_title)
+	group = QGroupBox(group_title) if group_title else QWidget()
 	groupLayout = QGridLayout()
 
-#	for i, (name, obj) in enumerate(objects.items()):
-#		groupLayout.addWidget(QLabel(name), 2*i, 0, 1, cols, alignment=Qt.AlignTop)
-#		groupLayout.addWidget(obj, 2*i + 1, 0, 1, cols, alignment=Qt.AlignTop)
 	offset = 0
 	for i, (name, obj) in enumerate(objects.items()):
 		idx = i + offset
 		if i not in fullwidth:
-			if not isinstance(obj, QCheckBox):
+			if not (isinstance(obj, QCheckBox) or isinstance(obj, QLabel)):
 				groupLayout.addWidget(QLabel(name), 2*(idx//cols), idx%cols, 1, 1, alignment=Qt.AlignTop)
 			groupLayout.addWidget(obj, 2*(idx//cols) + 1, idx%cols, 1, 1, alignment=Qt.AlignTop)
 		else:
-			if not isinstance(obj, QCheckBox):
+			if not (isinstance(obj, QCheckBox) or isinstance(obj, QLabel)):
 				groupLayout.addWidget(QLabel(name), 2*(idx//cols), 0, 1, cols, alignment=Qt.AlignTop)
 			groupLayout.addWidget(obj, 2*(idx//cols) + 1, 0, 1, cols, alignment=Qt.AlignTop)
 			offset += (cols - 1)
@@ -105,42 +102,103 @@ def create_object_group(group_title, objects, cols = 1, fullwidth = []):
 	group.setLayout(groupLayout)
 	return group
 
+#Create some object_groups in diferent tabs
+def create_tabs_group(tabs_dict):
+	tabs = QTabWidget()
+	for name, t in tabs_dict.items(): tabs.addTab(create_object_group(
+		t['name'] if ('name' in t) else None,
+		t['objects'] if ('objects' in t) else {},
+		t['cols'] if ('cols' in t) else 1,
+		t['fullWidth'] if ('fullWidth' in t) else []
+	), name)
+	return tabs
+
 #Normalize disparity map to allow visualization
 def disp2img(disp, minDisparity, numDisparities):
 	return ((disp.astype(np.float32) / 16.0) - minDisparity) / numDisparities
 
 #Undo above operation
 def img2disp(img, minDisparity, numDisparities):
-#	print(type(img[0][0]))
-	return np.array(((img * numDisparities) + minDisparity) * 16, dtype=np.uint8)
+	return (((img * numDisparities) + minDisparity) * 16.0).astype(np.int16)
 
 
 #Get slider value/combobox index
 def get_object_value(obj):
 	if isinstance(obj, QSlider): return obj.value()
 	if isinstance(obj, QComboBox): return obj.currentIndex()
+	if isinstance(obj, QCheckBox): return obj.isChecked()
+	if isinstance(obj, QTabWidget): return obj.currentIndex()
 
 #Set slider/combobox value
 def update_object_value(obj, value):
 	if isinstance(obj, QSlider): obj.setValue(value)
 	if isinstance(obj, QComboBox): obj.setCurrentIndex(value)
+	if isinstance(obj, QCheckBox): obj.setChecked(value)
+	if isinstance(obj, QTabWidget): obj.setCurrentIndex(value)
 
 #Set slider/combobox callbacks
 def set_object_callback(obj, callback):
 	if isinstance(obj, QSlider): obj.valueChanged.connect(lambda: callback())
 	if isinstance(obj, QComboBox): obj.currentIndexChanged.connect(lambda: callback())
-
+	if isinstance(obj, QCheckBox): obj.stateChanged.connect(lambda: callback())
+	if isinstance(obj, QTabWidget): obj.currentChanged.connect(lambda: callback())
+	if isinstance(obj, QPushButton): obj.clicked.connect(lambda: callback())
 
 #3D point cloud
-def show_point_cloud(img, disp, Q):
+def compute_point_cloud(img, disp, Q, normals = None):
 	points = cv.reprojectImageTo3D(disp, Q)
 	colors = cv.cvtColor(img, cv.COLOR_BGR2RGB)
 	mask = disp > disp.min()
 
-	p = o3d.utility.Vector3dVector(points[mask])
-	c = o3d.utility.Vector3dVector(colors[mask] / 255)
-
 	pcd = o3d.geometry.PointCloud()
-	pcd.points = p
-	pcd.colors = c
+	pcd.points = o3d.utility.Vector3dVector(points[mask])
+	pcd.colors = o3d.utility.Vector3dVector(colors[mask] / 255)
+	if isinstance(normals, np.ndarray): pcd.normals = o3d.utility.Vector3dVector(normals[mask])
+
+	return pcd
+
+def show_point_cloud(img, disp, Q):
+	pcd = compute_point_cloud(img, disp, Q)
 	o3d.visualization.draw_geometries([pcd])
+
+#Compute normals. https://stackoverflow.com/questions/53350391/surface-normal-calculation-from-depth-map-in-python
+def compute_normals(disp, minDisp, numDisp):
+	disp_norm = cv.cvtColor(disp2img(disp, minDisp, numDisp), cv.COLOR_GRAY2BGR).astype("float64")
+	normals = np.array(disp_norm, dtype="float32")
+	h,w,d = disp_norm.shape
+	for i in range(1, w-1):
+		for j in range(1, h-1):
+			t = np.array([i,j-1,disp_norm[j-1,i,0]],dtype="float64")
+			f = np.array([i-1,j,disp_norm[j,i-1,0]],dtype="float64")
+			c = np.array([i,j,disp_norm[j,i,0]] , dtype = "float64")
+			d = np.cross(f-c,t-c)
+			normals[j,i,:] = d / np.sqrt((np.sum(d**2)))
+
+	return -normals
+
+#BPA Mesh
+def show_bpa_mesh(img, disp, Q, radius, max_triang, minDisp, numDisp, verbose = False):
+	if verbose: print('Computing normals...')
+	normals = compute_normals(disp, minDisp, numDisp)
+
+	if verbose: print('Computing point cloud')
+	pcd = compute_point_cloud(img, disp, Q, normals = normals * 255)
+
+	if radius == 0:
+		distances = pcd.compute_nearest_neighbor_distance()
+		radius = 3 * np.mean(distances)
+	if verbose: print(f'Using radius = {radius}')
+
+	if verbose: print('Computing mesh...')
+	radii = o3d.utility.DoubleVector([radius, radius * 2])
+	bpa_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, radii)
+
+	if verbose: print('Mesh decimation')
+	dec_mesh = bpa_mesh.simplify_quadric_decimation(max_triang)
+	dec_mesh.remove_degenerate_triangles()
+	dec_mesh.remove_duplicated_triangles()
+	dec_mesh.remove_duplicated_vertices()
+	dec_mesh.remove_non_manifold_edges()
+
+	if verbose: print('Showing...')
+	o3d.visualization.draw_geometries([dec_mesh])
