@@ -20,16 +20,28 @@ class OfflineUI(QWidget):
 		self.params = {}				#Aqui se guardan los parametros actuales
 		self.update_params = True			#Flag para que los parametros se actualizen segun cambian los sliders
 		self.verbose = kargs['verbose']
-		self.blur_filters = [
+
+		self.blur_filters_mapping = [			#Blur filters options mapping
 			lambda src, k: cv.blur(src, (k, k)),
 			lambda src, k: cv.GaussianBlur(src, (k, k), 0),
 			lambda src, k: cv.medianBlur(src, k)
 		]
-		self.plot3d_options = [
+		self.preprocessing_options = [
+			lambda src: self._apply_blur(src, 0, self.params['preprocessing']['values']['NBF']['kernelSize']),
+			lambda src: self._apply_blur(src, 1, self.params['preprocessing']['values']['Gaussian filter']['kernelSize']),
+			lambda src: self._apply_blur(src, 2, self.params['preprocessing']['values']['Median filter']['kernelSize'])
+		]
+		self.blur_filter_options = [
+			lambda src: self._apply_blur(src, 0, self.params['filter']['blur_filter']['values']['NBF']['kernelSize']),
+			lambda src: self._apply_blur(src, 1, self.params['filter']['blur_filter']['values']['Gaussian filter']['kernelSize']),
+			lambda src: self._apply_blur(src, 2, self.params['filter']['blur_filter']['values']['Median filter']['kernelSize'])
+		]
+
+		self.plot3d_options = [				#3D reconstruction options mapping
 			lambda img, disp, Q: show_point_cloud(img, disp, Q),
 			lambda img, disp, Q: show_bpa_mesh(img, disp, Q,
-				self.plot3d_objects['BPA Mesh']['objects']['radius'].value(),
-				self.plot3d_objects['BPA Mesh']['objects']['num_triangles'].value(),
+				self.params['3dconf']['values']['3D BPA Mesh']['radius'],
+				self.params['3dconf']['values']['3D BPA Mesh']['num_triangles'],
 				self.params['matcher']['minDisparity'],
 				self.params['matcher']['numDisparities'],
 				verbose = self.verbose
@@ -40,20 +52,24 @@ class OfflineUI(QWidget):
 		grid = QGridLayout()
 
 		#Create elements
-		self.load_config = {		#Formulario para seleccionar y cargar imagenes
+		self.load_config = {				#Formulario para seleccionar y cargar imagenes
 			'path' : QLineEdit(kargs['default_test_path']), 'search' : QPushButton("Buscar carpetas"),
 			'folder' : QComboBox(), 'load' : QPushButton("Cargar ficheros")
 		}
-		self.image_display = {		#Displays para las imagenes
+		self.image_display = {				#Displays para las imagenes
 			'l' : self._create_display(), 'l_r' : self._create_display(),
 			'r' : self._create_display(), 'r_r' : self._create_display()
 		}
 
-		self.preblur_filter = {
-			'filterType' : create_combobox(['Normalized block filter', 'Gaussian filter', 'Median filter']),
-			'kernelSize' : create_slider(1, 200)
+		self.online_disparity_checkbox = QCheckBox("Real-time disparity")	#Realtime disparity (recalculate when any param change)
+
+		self.preprocessing_filters_objects = {		#Filtros de preprocesado de imagen
+			'NBF' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
+			'Gaussian filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
+			'Median filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}}
 		}
-		self.use_preblur_checkbox = QCheckBox("Image preprocessing")
+		self.preprocessing_filters_config = create_tabs_group(self.preprocessing_filters_objects)
+		self.use_preprocessing_checkbox = QCheckBox("Image preprocessing")
 
 		self.matcher_sliders = {	#Parametros del matcher
 			'minDisparity' : create_slider(1, 256),
@@ -68,36 +84,35 @@ class OfflineUI(QWidget):
 			'speckleRange' : create_slider(0, 200),
 			'mode' : create_combobox(["MODE_SGBM", "MODE_HH", "MODE_SGBM_3WAY", "MODE_HH4"])
 		}
-		self.online_disparity_checkbox = QCheckBox("Real-time disparity")
 
-		self.filter_sliders = {		#Parametros de los filtros
+		self.blur_filter_objects = {		#Filtros de blur al disparity map
+                        'NBF' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
+                        'Gaussian filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
+                        'Median filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}}
+                }
+		self.filter_sliders = {			#Parametros de los filtros al disparity map
 			'pre_maxSpeckleSize' : create_slider(0, 1000, tick_interval=500),
 			'pre_maxDiff' : create_slider(0, 50),
-			'blur_filterType' : create_combobox(['Normalized block filter', 'Gaussian filter', 'Median filter']),
-			'blur_kernelSize' : create_slider(1, 200),
+			'blur_filter' : create_tabs_group(self.blur_filter_objects),
 			'lambda' : create_slider(0, 24000, default_value = 8000, tick_interval=500, step=100),
 			'sigma' : create_slider(0, 40, default_value = 1.5, step = 0.1),
 			'post_maxSpeckleSize' : create_slider(0, 1000, tick_interval=500),
 			'post_maxDiff' : create_slider(0, 50)
 		}
-		self.use_filters = {
-			'pre-speckle' : QCheckBox('Use pre speckle filter'),
-			'blur' : QCheckBox('Use post blur filter'),
-			'wls' : QCheckBox('Use wls filter'),
-			'post-speckle' : QCheckBox('Use post speckle filter')
+		self.use_filters = {			#Checkbox para activa cada uno de los filtros
+			'pre-speckle' : QCheckBox('Use pre speckle filter'), 'blur' : QCheckBox('Use post blur filter'),
+			'wls' : QCheckBox('Use wls filter'), 'post-speckle' : QCheckBox('Use post speckle filter')
 		}
 
-		self.crop_sliders = {		#Limites de recortado
-			'x1' : create_slider(0, 640),
-			'x2' : create_slider(0, 640, default_value = 640),
-			'y1' : create_slider(0, 640, default_value = 0),
-			'y2' : create_slider(0, 640, default_value = 640)
+		self.crop_sliders = {			#Limites de recortado
+			'x1' : create_slider(0, 640), 'x2' : create_slider(0, 640, default_value = 640),
+			'y1' : create_slider(0, 640), 'y2' : create_slider(0, 640, default_value = 640)
 		}
 		self.apply_crop_checkbox = QCheckBox("Apply crop")
 
-		self.plot3d_objects = {
-                        'Point cloud' : {'objects' : { 'label' : QLabel('No parameters are required') }},
-			'BPA Mesh' : {
+		self.plot3d_objects = {			#3D plot config
+                        '3D Point cloud' : {'objects' : { 'label' : QLabel('No parameters are required') }},
+			'3D BPA Mesh' : {
 				'objects' : {
 					'radius' : create_slider(0, 10000, tick_interval = 250, default_value=0),
 					'num_triangles' : create_slider(0, 500000, tick_interval=10000, default_value=100000)
@@ -107,25 +122,29 @@ class OfflineUI(QWidget):
                 }
 		self.plot3d_config = create_tabs_group(self.plot3d_objects)
 
-		self.every_checkbox = {'onlineDisp' : self.online_disparity_checkbox, 'preprocessing' : self.use_preblur_checkbox, **self.use_filters, 'crop' : self.apply_crop_checkbox}
+		self.every_checkbox = {'onlineDisp' : self.online_disparity_checkbox, 'preprocessing' : self.use_preprocessing_checkbox, **self.use_filters, 'crop' : self.apply_crop_checkbox}
 		manual_disparity_button = QPushButton("Show disparity map") 	#Acciones manuales
 		reconstruct_3d = QPushButton("Reconstruir 3D")
 		save_current_btn = QPushButton("Save current")
 
 		#Callbacks and props
-		set_object_callback(self.load_config['search'], self._search_folders)
+		set_object_callback(self.load_config['search'], self._search_folders)	#Load image callbacks
 		set_object_callback(self.load_config['load'], self._load_files)
 
-		for s in self.preblur_filter.values(): set_object_callback(s, self._param_changed)
+		for conf in self.preprocessing_filters_objects.values():		#Callback in the pipeline parameters
+			for obj in conf['objects'].values(): set_object_callback(obj, self._param_changed)
+		set_object_callback(self.preprocessing_filters_config, self._param_changed)
 		for s in self.matcher_sliders.values(): set_object_callback(s, self._param_changed)
 		for s in self.filter_sliders.values(): set_object_callback(s, self._param_changed)
+		for conf in self.blur_filter_objects.values():
+			for obj in conf['objects'].values(): set_object_callback(obj, self._param_changed)
 		for s in self.crop_sliders.values(): set_object_callback(s, self._param_changed)
 		for c in self.every_checkbox.values(): set_object_callback(c, self._param_changed)
 		for conf in self.plot3d_objects.values():
 			for obj in conf['objects'].values(): set_object_callback(obj, self._param_changed)
 		set_object_callback(self.plot3d_config, self._param_changed)
 
-		set_object_callback(manual_disparity_button, self.update_disparity)
+		set_object_callback(manual_disparity_button, self.update_disparity)	#Callback in the buttons
 		set_object_callback(reconstruct_3d, lambda: self.update_disparity(True))
 		set_object_callback(save_current_btn, self._save_current)
 
@@ -140,16 +159,16 @@ class OfflineUI(QWidget):
 		grid.addWidget(self.image_display['r'], 2, 6, 1, 3, alignment=Qt.AlignTop)
 		grid.addWidget(self.image_display['r_r'], 2, 9, 1, 3, alignment=Qt.AlignTop)
 
-		grid.addWidget(self._create_preblur_group(), 3, 0, 4, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self._create_matcher_group(), 6, 0, 16, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self._create_filter_group(), 3, 6, 8, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self._create_crop_group(), 11, 6, 8, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self.plot3d_config, 17, 6, 4, 6, alignment=Qt.AlignTop)
+		grid.addWidget(self.preprocessing_filters_config, 3, 0, 6, 6, alignment=Qt.AlignTop)
+		grid.addWidget(self._create_matcher_group(), 7, 0, 12, 6, alignment=Qt.AlignTop)
+		grid.addWidget(self._create_filter_group(), 3, 6, 10, 6, alignment=Qt.AlignTop)
+		grid.addWidget(self._create_crop_group(), 13, 6, 4, 6, alignment=Qt.AlignTop)
+		grid.addWidget(self.plot3d_config, 16, 6, 4, 6, alignment=Qt.AlignTop)
 
-		grid.addWidget(self._create_checkbox_group(), 21, 0, 2, 12, alignment=Qt.AlignTop)
-		grid.addWidget(manual_disparity_button, 23, 0, 1, 4, alignment=Qt.AlignBottom)
-		grid.addWidget(reconstruct_3d, 23, 4, 1, 4, alignment=Qt.AlignBottom)
-		grid.addWidget(save_current_btn, 23, 8, 1, 4, alignment=Qt.AlignBottom)
+		grid.addWidget(self._create_checkbox_group(), 19, 0, 1, 12, alignment=Qt.AlignTop)
+		grid.addWidget(manual_disparity_button, 20, 0, 1, 4, alignment=Qt.AlignBottom)
+		grid.addWidget(reconstruct_3d, 20, 4, 1, 4, alignment=Qt.AlignBottom)
+		grid.addWidget(save_current_btn, 20, 8, 1, 4, alignment=Qt.AlignBottom)
 
 		#Add layout
 		self.setLayout(grid)
@@ -188,6 +207,14 @@ class OfflineUI(QWidget):
 			self._update_sliders()
 
 	def _update_sliders(self):
+		categories = {
+#			'preprocessing' : self.preblur_filter,
+			'matcher' : self.matcher_sliders,
+			'filter' : self.filter_sliders,
+			'crop' : self.crop_sliders,
+			'checkbox' : self.every_checkbox
+		}
+
 		#Es necesario cambiar este flag antes y despues xq si no en el momento que cambiamos
 		#los parametros de un slider, se llama la funcion _param_changed y sobreescribe los valores
 		#del resto de sliders que se tengan que cambiar
@@ -195,23 +222,50 @@ class OfflineUI(QWidget):
 		self.update_params = False
 
 		#Update sliders with the stored parameters
-		categories = {
-			'preprocessing' : self.preblur_filter,
-			'matcher' : self.matcher_sliders,
-			'filter' : self.filter_sliders,
-			'crop' : self.crop_sliders,
-			'checkbox' : self.every_checkbox
-		}
-		for category, param_category in self.params.items():
-			if category in categories:
-				cat = categories[category]
-				for name,v in param_category.items(): update_object_value(cat[name], v)
+		try:
+			if 'preprocessing' in self.params:
+				update_object_value(self.preprocessing_filters_config, self.params['preprocessing']['currentTab'])
+				for tab_name, conf in self.params['preprocessing'].items():
+					for obj_name, v in conf.items():
+						update_object_value(self.preprocessing_filters_objects[tab_name]['objects'][obj_name], v)
+		except: pass
 
-		if '3dconf' in self.params:
-			update_object_value(self.plot3d_config, self.params['3dconf']['currentTab'])
-			for tab_name, conf in self.params['3dconf']['values'].items():
-				for obj_name, v in conf.items():
-					update_object_value(self.plot3d_objects[tab_name]['objects'][obj_name], v)
+		try:
+			if 'matcher' in self.params:
+				for name,v in self.params['matcher'].items():
+					update_object_value(self.matcher_sliders[name], v)
+		except: pass
+
+		try:
+			if 'filter' in self.params:
+				for name, v in self.params['filter'].items():
+					if name != 'blur_filter': update_object_value(self.filter_sliders[name], v)
+					else:
+						update_object_value(self.filter_sliders[name], v['currentTab'])
+						for tab_name, conf in v['values'].items():
+							for obj_name, val in conf.items():
+								update_object_value(self.blur_filter_objects[tab_name]['objects'][obj_name], v)
+		except: pass
+
+		try:
+			if 'crop' in self.params:
+				for name,v in self.params['crop'].items():
+					update_object_value(self.crop_sliders[name], v)
+		except: pass
+
+		try:
+			if 'checkbox' in self.params:
+				for name,v in self.params['checkbox'].items():
+					update_object_value(self.every_checkbox[name], v)
+		except: pass
+
+		try:
+			if '3dconf' in self.params:
+				update_object_value(self.plot3d_config, self.params['3dconf']['currentTab'])
+				for tab_name, conf in self.params['3dconf']['values'].items():
+					for obj_name, v in conf.items():
+						update_object_value(self.plot3d_objects[tab_name]['objects'][obj_name], v)
+		except: pass
 
 		self.update_params = True
 		#Llamamos manualmente a _param_changed para que actualize el mapa de disparidad si asi
@@ -223,14 +277,18 @@ class OfflineUI(QWidget):
 
 		#Update the params that are stored based on slider values
 		self.params = {
-			'preprocessing' : {name : get_object_value(s) for name,s in self.preblur_filter.items()},
+			'preprocessing' : {'currentTab' : get_object_value(self.preprocessing_filters_config), 'values' : {tab_name : {
+				name : get_object_value(obj) for name, obj in conf['objects'].items()
+			} for tab_name, conf in self.preprocessing_filters_objects.items()}},
 			'matcher' : {name : get_object_value(s) for name,s in self.matcher_sliders.items()},
-			'filter' : {name : get_object_value(s) for name,s in self.filter_sliders.items()},
+			'filter' : {name : (get_object_value(s) if not isinstance(s, QTabWidget) else {'currentTab' : get_object_value(s), 'values' : {tab_name : {
+				name : get_object_value(obj) for name, obj in conf['objects'].items()
+			} for tab_name, conf in self.blur_filter_objects.items()}}) for name,s in self.filter_sliders.items()},
 			'crop' : {name : get_object_value(s) for name,s in self.crop_sliders.items()},
 			'checkbox' : {name : get_object_value(c) for name,c in self.every_checkbox.items()},
 			'3dconf' : {'currentTab' : get_object_value(self.plot3d_config), 'values' : {tab_name : {
-				name : get_object_value(obj) for name,obj in conf['objects'].items()}
-			for tab_name, conf in self.plot3d_objects.items()}}
+				name : get_object_value(obj) for name,obj in conf['objects'].items()
+			} for tab_name, conf in self.plot3d_objects.items()}}
 		}
 		if self.verbose: print(self.params)
 
@@ -239,15 +297,14 @@ class OfflineUI(QWidget):
 
 	#Wrappers
 	def _create_display(self): return create_display(self.display_size['w'], self.display_size['h'])
-	def _create_preblur_group(self): return create_object_group("Image preprocessing", self.preblur_filter, cols = 2)
 	def _create_matcher_group(self): return create_object_group("Matcher parameters", self.matcher_sliders, cols = 2, fullwidth = [0,1,2])
-	def _create_filter_group(self): return create_object_group("Disparity filtering", self.filter_sliders, cols = 2)
-	def _create_crop_group(self): return create_object_group("Crop parameters", self.crop_sliders, cols = 2)
+	def _create_filter_group(self): return create_object_group("Disparity filtering", self.filter_sliders, cols = 2, fullwidth = [2])
+	def _create_crop_group(self): return create_object_group("Crop parameters", self.crop_sliders, cols = 4)
 	def _create_checkbox_group(self): return create_object_group(None, self.every_checkbox, cols = 7)
 
 	def _apply_blur(self, img, filterType, kernelSize):
 		if filterType != 0 and kernelSize % 2 == 0: kernelSize += 1
-		return self.blur_filters[filterType](img, kernelSize)
+		return self.blur_filters_mapping[filterType](img, kernelSize)
 
 	def _crop_img(self, img):
 		#Get crop limits from the sliders and return the cropped image
@@ -265,8 +322,8 @@ class OfflineUI(QWidget):
 
 		#Aplicamos preprocesados
 		if self.params['checkbox']['preprocessing']:
-			rect_l = self._apply_blur(rect_l, self.params['preprocessing']['filterType'], self.params['preprocessing']['kernelSize'])
-			rect_r = self._apply_blur(rect_r, self.params['preprocessing']['filterType'], self.params['preprocessing']['kernelSize'])
+			rect_l = self.preprocessing_options[self.params['preprocessing']['currentTab']](rect_l)
+			rect_r = self.preprocessing_options[self.params['preprocessing']['currentTab']](rect_r)
 
 		#Calculamos el mapa de disparidad
 		stereo = cv.StereoSGBM_create(**self.params['matcher'])
@@ -283,7 +340,7 @@ class OfflineUI(QWidget):
 			_img = cv.cvtColor(cv.normalize(_img, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U), cv.COLOR_GRAY2BGR)
 
 			#Filter image
-			_img = self._apply_blur(_img, self.params['filter']['blur_filterType'], self.params['filter']['blur_kernelSize'])
+			_img = self.blur_filter_options[self.params['filter']['blur_filter']['currentTab']](_img)
 
 			#Convert to uint8 to float32
 			_img = (cv.cvtColor(_img, cv.COLOR_BGR2GRAY) / 255).astype("float32")
@@ -315,7 +372,7 @@ class OfflineUI(QWidget):
 				disp = self._crop_img(disp)
 				rect_l = self._crop_img(rect_l)
 
-			self.plot3d_options[self.plot3d_config.currentIndex()](rect_l, disp, Q)
+			self.plot3d_options[self.params['3dconf']['currentTab']](rect_l, disp, Q)
 
 	def _save_current(self):
 		#Get path and create a new folder

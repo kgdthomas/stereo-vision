@@ -90,11 +90,11 @@ def create_object_group(group_title, objects, cols = 1, fullwidth = []):
 	for i, (name, obj) in enumerate(objects.items()):
 		idx = i + offset
 		if i not in fullwidth:
-			if not (isinstance(obj, QCheckBox) or isinstance(obj, QLabel)):
+			if not (isinstance(obj, QCheckBox) or isinstance(obj, QLabel) or isinstance(obj, QTabWidget)):
 				groupLayout.addWidget(QLabel(name), 2*(idx//cols), idx%cols, 1, 1, alignment=Qt.AlignTop)
 			groupLayout.addWidget(obj, 2*(idx//cols) + 1, idx%cols, 1, 1, alignment=Qt.AlignTop)
 		else:
-			if not (isinstance(obj, QCheckBox) or isinstance(obj, QLabel)):
+			if not (isinstance(obj, QCheckBox) or isinstance(obj, QLabel) or isinstance(obj, QTabWidget)):
 				groupLayout.addWidget(QLabel(name), 2*(idx//cols), 0, 1, cols, alignment=Qt.AlignTop)
 			groupLayout.addWidget(obj, 2*(idx//cols) + 1, 0, 1, cols, alignment=Qt.AlignTop)
 			offset += (cols - 1)
