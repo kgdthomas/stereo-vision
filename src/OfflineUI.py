@@ -24,17 +24,28 @@ class OfflineUI(QWidget):
 		self.blur_filters_mapping = [			#Blur filters options mapping
 			lambda src, k: cv.blur(src, (k, k)),
 			lambda src, k: cv.GaussianBlur(src, (k, k), 0),
-			lambda src, k: cv.medianBlur(src, k)
+			lambda src, k: cv.medianBlur(src, k),
+			lambda src, d, sigma, border: cv.bilateralFilter(src, d, sigma, sigma, border)
 		]
 		self.preprocessing_options = [
 			lambda src: self._apply_blur(src, 0, self.params['preprocessing']['values']['NBF']['kernelSize']),
 			lambda src: self._apply_blur(src, 1, self.params['preprocessing']['values']['Gaussian filter']['kernelSize']),
-			lambda src: self._apply_blur(src, 2, self.params['preprocessing']['values']['Median filter']['kernelSize'])
+			lambda src: self._apply_blur(src, 2, self.params['preprocessing']['values']['Median filter']['kernelSize']),
+			lambda src: self.blur_filters_mapping[3](src,
+				self.params['preprocessing']['values']['Bilateral filter']['diameter'],
+				self.params['preprocessing']['values']['Bilateral filter']['sigma'],
+				self.border_types[self.params['preprocessing']['values']['Bilateral filter']['border']]
+			)
 		]
 		self.blur_filter_options = [
 			lambda src: self._apply_blur(src, 0, self.params['filter']['blur_filter']['values']['NBF']['kernelSize']),
 			lambda src: self._apply_blur(src, 1, self.params['filter']['blur_filter']['values']['Gaussian filter']['kernelSize']),
-			lambda src: self._apply_blur(src, 2, self.params['filter']['blur_filter']['values']['Median filter']['kernelSize'])
+			lambda src: self._apply_blur(src, 2, self.params['filter']['blur_filter']['values']['Median filter']['kernelSize']),
+			lambda src: self.blur_filters_mapping[3](src,
+				self.params['filter']['blur_filter']['values']['Bilateral filter']['diameter'],
+				self.params['filter']['blur_filter']['values']['Bilateral filter']['sigma'],
+				self.border_types[self.params['filter']['blur_filter']['values']['Bilateral filter']['border']]
+			)
 		]
 
 		self.plot3d_options = [				#3D reconstruction options mapping
@@ -55,6 +66,7 @@ class OfflineUI(QWidget):
 				verbose = self.verbose
 			)
 		]
+		self.border_types = [cv.BORDER_DEFAULT, cv.BORDER_CONSTANT, cv.BORDER_REPLICATE, cv.BORDER_WRAP, cv.BORDER_REFLECT, cv.BORDER_TRANSPARENT, cv.BORDER_ISOLATED]
 
 		#Create layout
 		grid = QGridLayout()
@@ -74,7 +86,15 @@ class OfflineUI(QWidget):
 		self.preprocessing_filters_objects = {		#Filtros de preprocesado de imagen
 			'NBF' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
 			'Gaussian filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
-			'Median filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}}
+			'Median filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
+			'Bilateral filter' : {
+				'objects' : {
+					'diameter' : create_slider(1, 10, default_value = 5),
+					'sigma' : create_slider(1, 300, tick_interval = 10, default_value = 30),
+					'border' : create_combobox(['DEFAULT', 'CONSTANT', 'REPLICATE', 'WRAP', 'REFLECT', 'TRANSPARENT', 'ISOLATED'])
+				},
+				'cols' : 3
+			}
 		}
 		self.preprocessing_filters_config = create_tabs_group(self.preprocessing_filters_objects)
 		self.use_preprocessing_checkbox = QCheckBox("Image preprocessing")
@@ -96,8 +116,16 @@ class OfflineUI(QWidget):
 		self.blur_filter_objects = {		#Filtros de blur al disparity map
                         'NBF' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
                         'Gaussian filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
-                        'Median filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}}
-                }
+                        'Median filter' : {'objects' : {'kernelSize' : create_slider(1, 200)}},
+			'Bilateral filter' : {
+				'objects' : {
+					'diameter' : create_slider(1, 10, default_value = 5),
+					'sigma' : create_slider(1, 300, tick_interval = 10, default_value = 30),
+					'border' : create_combobox(['DEFAULT', 'CONSTANT', 'REPLICATE', 'WRAP', 'REFLECT', 'TRANSPARENT', 'ISOLATED'])
+				},
+				'cols' : 3
+			}
+		}
 		self.filter_sliders = {			#Parametros de los filtros al disparity map
 			'pre_maxSpeckleSize' : create_slider(0, 1000, tick_interval=500),
 			'pre_maxDiff' : create_slider(0, 50),
