@@ -100,16 +100,16 @@ class OfflineUI(QWidget):
 		self.use_preprocessing_checkbox = QCheckBox("Image preprocessing")
 
 		self.matcher_sliders = {	#Parametros del matcher
-			'minDisparity' : create_slider(1, 256),
-			'numDisparities' : create_slider(1, 512),
-			'blockSize' : create_slider(0, 256),
-			'P1' : create_slider(8, 1024),
-			'P2' : create_slider(8, 2048),
-			'disp12MaxDiff' : create_slider(1, 640),
+			'minDisparity' : create_slider(1, 256, default_value = 46),
+			'numDisparities' : create_slider(1, 512, default_value = 97),
+			'blockSize' : create_slider(0, 256, default_value = 23),
+			'P1' : create_slider(8, 1024, default_value = 335),
+			'P2' : create_slider(8, 2048, default_value = 1024),
+			'disp12MaxDiff' : create_slider(1, 640, default_value = 140),
 			'preFilterCap' : create_slider(0, 1000),
-			'uniquenessRatio' : create_slider(0, 15),
-			'speckleWindowSize' : create_slider(10, 30),
-			'speckleRange' : create_slider(0, 200),
+			'uniquenessRatio' : create_slider(0, 15, default_value = 1),
+			'speckleWindowSize' : create_slider(10, 30, default_value = 14),
+			'speckleRange' : create_slider(0, 200, default_value = 27),
 			'mode' : create_combobox(["MODE_SGBM", "MODE_HH", "MODE_SGBM_3WAY", "MODE_HH4"])
 		}
 
@@ -251,14 +251,6 @@ class OfflineUI(QWidget):
 			self._update_sliders()
 
 	def _update_sliders(self):
-		categories = {
-#			'preprocessing' : self.preblur_filter,
-			'matcher' : self.matcher_sliders,
-			'filter' : self.filter_sliders,
-			'crop' : self.crop_sliders,
-			'checkbox' : self.every_checkbox
-		}
-
 		#Es necesario cambiar este flag antes y despues xq si no en el momento que cambiamos
 		#los parametros de un slider, se llama la funcion _param_changed y sobreescribe los valores
 		#del resto de sliders que se tengan que cambiar
@@ -377,6 +369,7 @@ class OfflineUI(QWidget):
 		if self.params['checkbox']['pre-speckle']:
 			cv.filterSpeckles(disp, 0, self.params['filter']['pre_maxSpeckleSize'], self.params['filter']['pre_maxDiff'])
 
+		#Blur filter
 		if self.params['checkbox']['blur']:
 			#Disparity to image
 			_img = disp2img(disp, self.params['matcher']['minDisparity'], self.params['matcher']['numDisparities'])
