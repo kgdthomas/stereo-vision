@@ -45,6 +45,14 @@ class OfflineUI(QWidget):
 				self.params['matcher']['minDisparity'],
 				self.params['matcher']['numDisparities'],
 				verbose = self.verbose
+			),
+			lambda img, disp, Q: show_poisson_mesh(img, disp, Q,
+				self.params['3dconf']['values']['3D Poisson Mesh']['depth'],
+				self.params['3dconf']['values']['3D Poisson Mesh']['scale'],
+				self.params['3dconf']['values']['3D Poisson Mesh']['linear_fit'],
+				self.params['matcher']['minDisparity'],
+				self.params['matcher']['numDisparities'],
+				verbose = self.verbose
 			)
 		]
 
@@ -79,7 +87,7 @@ class OfflineUI(QWidget):
 			'P2' : create_slider(8, 2048),
 			'disp12MaxDiff' : create_slider(1, 640),
 			'preFilterCap' : create_slider(0, 1000),
-			'uniquenessRatio' : create_slider(0, 10, tick_interval = 0.05, step = 0.05),
+			'uniquenessRatio' : create_slider(0, 15),
 			'speckleWindowSize' : create_slider(10, 30),
 			'speckleRange' : create_slider(0, 200),
 			'mode' : create_combobox(["MODE_SGBM", "MODE_HH", "MODE_SGBM_3WAY", "MODE_HH4"])
@@ -95,7 +103,7 @@ class OfflineUI(QWidget):
 			'pre_maxDiff' : create_slider(0, 50),
 			'blur_filter' : create_tabs_group(self.blur_filter_objects),
 			'lambda' : create_slider(0, 24000, default_value = 8000, tick_interval=500, step=100),
-			'sigma' : create_slider(0, 40, default_value = 1.5, step = 0.1),
+			'sigma' : create_slider(0, 400, tick_interval=10, default_value = 15, scale=0.1, type=float),
 			'post_maxSpeckleSize' : create_slider(0, 1000, tick_interval=500),
 			'post_maxDiff' : create_slider(0, 50)
 		}
@@ -114,10 +122,18 @@ class OfflineUI(QWidget):
                         '3D Point cloud' : {'objects' : { 'label' : QLabel('No parameters are required') }},
 			'3D BPA Mesh' : {
 				'objects' : {
-					'radius' : create_slider(0, 10000, tick_interval = 250, default_value=0),
-					'num_triangles' : create_slider(0, 500000, tick_interval=10000, default_value=100000)
+					'radius' : create_slider(0, 100, tick_interval = 25, default_value=0, scale=0.01, type=float),
+					'num_triangles' : create_slider(0, 500000, tick_interval=10000, default_value=100000, step=5000)
 				},
 				'cols' : 2
+			},
+			'3D Poisson Mesh' : {
+				'objects' : {
+					'depth' : create_slider(1, 16, default_value = 8),
+					'scale' : create_slider(10, 30, default_value = 11, tick_interval=10, scale=0.1, type=float),
+					'linear_fit' : QCheckBox('Linear fit')
+				},
+				'cols' : 3
 			}
                 }
 		self.plot3d_config = create_tabs_group(self.plot3d_objects)
@@ -225,7 +241,7 @@ class OfflineUI(QWidget):
 		try:
 			if 'preprocessing' in self.params:
 				update_object_value(self.preprocessing_filters_config, self.params['preprocessing']['currentTab'])
-				for tab_name, conf in self.params['preprocessing'].items():
+				for tab_name, conf in self.params['preprocessing']['values'].items():
 					for obj_name, v in conf.items():
 						update_object_value(self.preprocessing_filters_objects[tab_name]['objects'][obj_name], v)
 		except: pass
@@ -244,7 +260,7 @@ class OfflineUI(QWidget):
 						update_object_value(self.filter_sliders[name], v['currentTab'])
 						for tab_name, conf in v['values'].items():
 							for obj_name, val in conf.items():
-								update_object_value(self.blur_filter_objects[tab_name]['objects'][obj_name], v)
+								update_object_value(self.blur_filter_objects[tab_name]['objects'][obj_name], val)
 		except: pass
 
 		try:

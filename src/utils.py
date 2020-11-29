@@ -57,7 +57,8 @@ def create_display(w, h):
 	return ql
 
 #Create QSlider with the given config
-def create_slider(min_value, max_value, tick_interval = 5, default_value = None, step = 1):
+def create_slider(min_value, max_value, tick_interval = 5, default_value = None, step = 1, scale = 1, type=int):
+	#QSlider class configuration
 	slider = QSlider(Qt.Horizontal)
 	slider.setMinimum(min_value)
 	slider.setMaximum(max_value)
@@ -65,6 +66,11 @@ def create_slider(min_value, max_value, tick_interval = 5, default_value = None,
 	slider.setTickInterval(tick_interval)
 	slider.setSingleStep(step)
 	if default_value is not None: slider.setValue(default_value)
+
+	#Custom configuration
+	slider.custom_scale = scale
+	slider.custom_type = type
+
 	return slider
 
 def create_combobox(options = []):
@@ -124,14 +130,14 @@ def img2disp(img, minDisparity, numDisparities):
 
 #Get slider value/combobox index
 def get_object_value(obj):
-	if isinstance(obj, QSlider): return obj.value()
+	if isinstance(obj, QSlider): return obj.custom_type(obj.value() * obj.custom_scale)
 	if isinstance(obj, QComboBox): return obj.currentIndex()
 	if isinstance(obj, QCheckBox): return obj.isChecked()
 	if isinstance(obj, QTabWidget): return obj.currentIndex()
 
 #Set slider/combobox value
 def update_object_value(obj, value):
-	if isinstance(obj, QSlider): obj.setValue(value)
+	if isinstance(obj, QSlider): obj.setValue(obj.custom_type(value / obj.custom_scale))
 	if isinstance(obj, QComboBox): obj.setCurrentIndex(value)
 	if isinstance(obj, QCheckBox): obj.setChecked(value)
 	if isinstance(obj, QTabWidget): obj.setCurrentIndex(value)
@@ -177,7 +183,7 @@ def compute_normals(disp, minDisp, numDisp):
 	return -normals
 
 #BPA Mesh
-def show_bpa_mesh(img, disp, Q, radius, max_triang, minDisp, numDisp, verbose = False):
+def compute_bpa_mesh(img, disp, Q, radius, minDisp, numDisp, verbose = False):
 	if verbose: print('Computing normals...')
 	normals = compute_normals(disp, minDisp, numDisp)
 
@@ -191,7 +197,10 @@ def show_bpa_mesh(img, disp, Q, radius, max_triang, minDisp, numDisp, verbose = 
 
 	if verbose: print('Computing mesh...')
 	radii = o3d.utility.DoubleVector([radius, radius * 2])
-	bpa_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, radii)
+	return o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, radii)
+
+def show_bpa_mesh(img, disp, Q, radius, max_triang, minDisp, numDisp, verbose = False):
+	bpa_mesh = compute_bpa_mesh(img, disp, Q, radius, minDisp, numDisp, verbose)
 
 	if verbose: print('Mesh decimation')
 	dec_mesh = bpa_mesh.simplify_quadric_decimation(max_triang)
@@ -202,3 +211,23 @@ def show_bpa_mesh(img, disp, Q, radius, max_triang, minDisp, numDisp, verbose = 
 
 	if verbose: print('Showing...')
 	o3d.visualization.draw_geometries([dec_mesh])
+
+#Poisson mesh
+def compute_poisson_mesh(img, disp, Q, depth, scale, fit, minDisp, numDisp, verbose = False):
+	if verbose: print('Computing normals...')
+	normals = compute_normals(disp, minDisp, numDisp)
+
+	if verbose: print('Computing point cloud')
+	pcd = compute_point_cloud(img, disp, Q, normals = normals * 255)
+
+	if verbose: print('Computing mesh...')
+	poisson_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=depth, scale=scale, linear_fit=fit)[0]
+
+	if verbose: print('Cropping mesh')
+	return poisson_mesh.crop(pcd.get_axis_aligned_bounding_box())
+
+def show_poisson_mesh(img, disp, Q, depth, scale, fit, minDisp, numDisp, verbose = False):
+	poisson_mesh = compute_poisson_mesh(img, disp, Q, depth, scale, fit, minDisp, numDisp, verbose)
+
+	if verbose: print('Showing...')
+	o3d.visualization.draw_geometries([poisson_mesh])
