@@ -7,7 +7,6 @@ import sys
 import os
 
 #Import UI
-sys.path.insert(0, '{}/src'.format(os.path.dirname(os.path.abspath(__file__))))
 from CalibrationUI import CalibrationUI
 from DisparityUI import DisparityUI
 from OfflineUI import OfflineUI
