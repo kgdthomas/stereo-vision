@@ -168,6 +168,7 @@ class DisparityUI(QWidget):
 
 		self.every_checkbox = {'onlineDisp' : self.online_disparity_checkbox, 'preprocessing' : self.use_preprocessing_checkbox, **self.use_filters, 'crop' : self.apply_crop_checkbox}
 		manual_disparity_button = QPushButton("Show disparity map")				#Manually show disparity map
+		depth_map = QPushButton("Show depth map")						#Mapa de profundidad
 		reconstruct_3d = QPushButton("Reconstruir 3D")						#3D reconstruction and rendering
 		save_current_button = QPushButton("Save current at")					#Save current images and params
 
@@ -193,28 +194,30 @@ class DisparityUI(QWidget):
 		set_object_callback(self.plot3d_config, self._param_changed)
 
 		set_object_callback(manual_disparity_button, self.update_disparity)
-		set_object_callback(reconstruct_3d, lambda: self.update_disparity(True))
+		set_object_callback(depth_map, lambda: self.update_disparity(depth_map = True))
+		set_object_callback(reconstruct_3d, lambda: self.update_disparity(plot3d = True))
 		set_object_callback(save_current_button, self._save_current)
 
 		#Populate layout
-		grid.addWidget(list_cameras_button, 0, 0, 1, 12, alignment=Qt.AlignTop)
-		grid.addWidget(self.camera_dropdown['l'], 1, 0, 1, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self.camera_dropdown['r'], 1, 6, 1, 6, alignment=Qt.AlignTop)
+		grid.addWidget(list_cameras_button, 0, 0, 1, 24, alignment=Qt.AlignTop)
+		grid.addWidget(self.camera_dropdown['l'], 1, 0, 1, 12, alignment=Qt.AlignTop)
+		grid.addWidget(self.camera_dropdown['r'], 1, 12, 1, 12, alignment=Qt.AlignTop)
 
-		grid.addWidget(self.camera_display['l'], 2, 0, 1, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self.camera_display['r'], 2, 6, 1, 6, alignment=Qt.AlignTop)
+		grid.addWidget(self.camera_display['l'], 2, 0, 1, 12, alignment=Qt.AlignTop)
+		grid.addWidget(self.camera_display['r'], 2, 12, 1, 12, alignment=Qt.AlignTop)
 
-		grid.addWidget(self.preprocessing_filters_config, 3, 0, 6, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self._create_matcher_group(), 7, 0, 12, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self._create_filter_group(), 3, 6, 10, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self._create_crop_group(), 13, 6, 4, 6, alignment=Qt.AlignTop)
-		grid.addWidget(self.plot3d_config, 16, 6, 4, 6, alignment=Qt.AlignTop)
+		grid.addWidget(self.preprocessing_filters_config, 3, 0, 6, 12, alignment=Qt.AlignTop)
+		grid.addWidget(self._create_matcher_group(), 7, 0, 12, 12, alignment=Qt.AlignTop)
+		grid.addWidget(self._create_filter_group(), 3, 12, 10, 12, alignment=Qt.AlignTop)
+		grid.addWidget(self._create_crop_group(), 13, 12, 4, 12, alignment=Qt.AlignTop)
+		grid.addWidget(self.plot3d_config, 16, 12, 4, 12, alignment=Qt.AlignTop)
 
-		grid.addWidget(self._create_checkbox_group(), 19, 0, 1, 12, alignment=Qt.AlignTop)
-		grid.addWidget(manual_disparity_button, 20, 0, 1, 3, alignment=Qt.AlignBottom)
-		grid.addWidget(reconstruct_3d, 20, 3, 1, 3, alignment=Qt.AlignBottom)
-		grid.addWidget(save_current_button, 20, 6, 1, 3, alignment=Qt.AlignBottom)
-		grid.addWidget(self.save_current_path, 20, 9, 1, 3, alignment=Qt.AlignBottom)
+		grid.addWidget(self._create_checkbox_group(), 19, 0, 1, 24, alignment=Qt.AlignTop)
+		grid.addWidget(manual_disparity_button, 20, 0, 1, 5, alignment=Qt.AlignBottom)
+		grid.addWidget(depth_map, 20, 5, 1, 5, alignment=Qt.AlignBottom)
+		grid.addWidget(reconstruct_3d, 20, 10, 1, 5, alignment=Qt.AlignBottom)
+		grid.addWidget(save_current_button, 20, 15, 1, 5, alignment=Qt.AlignBottom)
+		grid.addWidget(self.save_current_path, 20, 20, 1, 4, alignment=Qt.AlignBottom)
 
 #		grid.addWidget(QLabel("Save current path"), 7, 3, 1, 3, alignment=Qt.AlignBottom)
 #		grid.addWidget(self.save_current_path, 8, 3, 1, 3, alignment=Qt.AlignBottom)
@@ -310,7 +313,7 @@ class DisparityUI(QWidget):
 		if filterType != 0 and kernelSize % 2 == 0: kernelSize += 1
 		return self.blur_filters_mapping[filterType](img, kernelSize)
 
-	def update_disparity(self, plot3d = False):
+	def update_disparity(self, depth_map = False, plot3d = False):
 		#Verify disparity map is not being calculated
 		if self.busy_disparity: return
 		self.busy_disparity = True
@@ -370,6 +373,12 @@ class DisparityUI(QWidget):
 		if self.params['checkbox']['crop']: disp_norm = self._crop_img(disp_norm)
 		#Show
 		cv.imshow("Disparity map", disp_norm)
+
+		#Depth map
+		if depth_map:
+			Q = self.parentWindow.calibration.cw.rectification_results['disparity2depth_mappingMatrix']
+			if self.params['checkbox']['crop']: disp = self._crop_img(disp)
+			show_depth_map(disp, Q)
 
 		#If 3dplot is requested
 		if plot3d:
