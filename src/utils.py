@@ -5,6 +5,8 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import numpy as np
 import open3d as o3d
+from plot_heatmap import plot_heatmap
+import matplotlib.pyplot as plt
 
 #Get all available cameras by trying to open them
 def list_cameras(max_tests = 4):
@@ -149,6 +151,14 @@ def set_object_callback(obj, callback):
 	if isinstance(obj, QCheckBox): obj.stateChanged.connect(lambda: callback())
 	if isinstance(obj, QTabWidget): obj.currentChanged.connect(lambda: callback())
 	if isinstance(obj, QPushButton): obj.clicked.connect(lambda: callback())
+
+#Depth map
+def show_depth_map(disp, Q):
+	points = cv.reprojectImageTo3D(disp, Q)
+	ylen, xlen = points.shape[:2]
+	x, y = [i for i in range(xlen)], [ylen - j for j in range(ylen)]
+	z = [pix[2] for column in points for pix in column]
+	plot_heatmap(x,y,z, x_label = "Pixel x", y_label = "Pixel y")
 
 #3D point cloud
 def compute_point_cloud(img, disp, Q, normals = None):
