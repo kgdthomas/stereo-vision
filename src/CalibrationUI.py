@@ -67,19 +67,19 @@ class CalibrationUI(QWidget):
 		grid.addWidget(self.camera_display['l'], 3, 0, 1, 3, alignment=Qt.AlignTop)
 		grid.addWidget(self.camera_display['r'], 3, 3, 1, 3, alignment=Qt.AlignTop)
 
-		grid.addWidget(QLabel('Store image path'), 4, 0, 1, 1, alignment=Qt.AlignTop)
-		grid.addWidget(self.line_edit['path'], 5, 0, 1, 1, alignment=Qt.AlignTop)
-		grid.addWidget(QLabel('Image name template'), 6, 0, 1, 1, alignment=Qt.AlignTop)
-		grid.addWidget(self.line_edit['file_template'], 7, 0, 1, 1, alignment=Qt.AlignTop)
+		grid.addWidget(QLabel('Store image path'), 4, 0, 1, 3, alignment=Qt.AlignBottom)
+		grid.addWidget(self.line_edit['path'], 5, 0, 1, 3, alignment=Qt.AlignBottom)
+		grid.addWidget(QLabel('Image name template'), 6, 0, 1, 3, alignment=Qt.AlignTop)
+		grid.addWidget(self.line_edit['file_template'], 7, 0, 1, 3, alignment=Qt.AlignTop)
 
-		grid.addWidget(QLabel('Image current index'), 4, 2, 1, 1, alignment=Qt.AlignTop)
-		grid.addWidget(self.line_edit['current_index'], 5, 2, 1, 1, alignment=Qt.AlignTop)
-		grid.addWidget(QLabel('Capture image timeout'), 6, 2, 1, 1, alignment=Qt.AlignTop)
-		grid.addWidget(self.line_edit['capture_timeout'], 7, 2, 1, 1, alignment=Qt.AlignTop)
+		grid.addWidget(QLabel('Image current index'), 4, 3, 1, 3, alignment=Qt.AlignBottom)
+		grid.addWidget(self.line_edit['current_index'], 5, 3, 1, 3, alignment=Qt.AlignBottom)
+		grid.addWidget(QLabel('Capture image timeout'), 6, 3, 1, 3, alignment=Qt.AlignBottom)
+		grid.addWidget(self.line_edit['capture_timeout'], 7, 3, 1, 3, alignment=Qt.AlignBottom)
 
-		grid.addWidget(self.toggle_capture_button, 8, 0, 1, 3, alignment=Qt.AlignTop)
-		grid.addWidget(self.capture_timeout_label, 9, 0, 1, 3, alignment=Qt.AlignTop)
-		grid.addWidget(calibrate_button, 10, 0, 6, 3, alignment=Qt.AlignBottom)
+		grid.addWidget(self.toggle_capture_button, 8, 0, 1, 6, alignment=Qt.AlignBottom)
+		grid.addWidget(self.capture_timeout_label, 9, 0, 1, 6, alignment=Qt.AlignBottom)
+		grid.addWidget(calibrate_button, 10, 0, 6, 6, alignment=Qt.AlignBottom)
 
 		#Add layout
 		self.setLayout(grid)
