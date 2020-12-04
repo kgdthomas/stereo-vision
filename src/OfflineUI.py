@@ -34,7 +34,7 @@ class OfflineUI(QWidget):
 			lambda src: self.blur_filters_mapping[3](src,
 				self.params['preprocessing']['values']['Bilateral filter']['diameter'],
 				self.params['preprocessing']['values']['Bilateral filter']['sigma'],
-				self.border_types[self.params['preprocessing']['values']['Bilateral filter']['border']]
+				cv.BORDER_DEFAULT #self.border_types[self.params['preprocessing']['values']['Bilateral filter']['border']]
 			)
 		]
 		self.blur_filter_options = [
@@ -44,7 +44,7 @@ class OfflineUI(QWidget):
 			lambda src: self.blur_filters_mapping[3](src,
 				self.params['filter']['blur_filter']['values']['Bilateral filter']['diameter'],
 				self.params['filter']['blur_filter']['values']['Bilateral filter']['sigma'],
-				self.border_types[self.params['filter']['blur_filter']['values']['Bilateral filter']['border']]
+				cv.BORDER_DEFAULT #self.border_types[self.params['filter']['blur_filter']['values']['Bilateral filter']['border']]
 			)
 		]
 
@@ -66,7 +66,7 @@ class OfflineUI(QWidget):
 				verbose = self.verbose
 			)
 		]
-		self.border_types = [cv.BORDER_DEFAULT, cv.BORDER_CONSTANT, cv.BORDER_REPLICATE, cv.BORDER_WRAP, cv.BORDER_REFLECT, cv.BORDER_TRANSPARENT, cv.BORDER_ISOLATED]
+		#self.border_types = [cv.BORDER_DEFAULT, cv.BORDER_CONSTANT, cv.BORDER_REPLICATE, cv.BORDER_WRAP, cv.BORDER_REFLECT, cv.BORDER_TRANSPARENT, cv.BORDER_ISOLATED]
 
 		#Create layout
 		grid = QGridLayout()
@@ -90,8 +90,8 @@ class OfflineUI(QWidget):
 			'Bilateral filter' : {
 				'objects' : {
 					'diameter' : create_slider(1, 10, default_value = 5),
-					'sigma' : create_slider(1, 300, tick_interval = 10, default_value = 30),
-					'border' : create_combobox(['DEFAULT', 'CONSTANT', 'REPLICATE', 'WRAP', 'REFLECT', 'TRANSPARENT', 'ISOLATED'])
+					'sigma' : create_slider(1, 300, tick_interval = 10, default_value = 30)
+#					'border' : create_combobox(['DEFAULT', 'CONSTANT', 'REPLICATE', 'WRAP', 'REFLECT', 'TRANSPARENT', 'ISOLATED'])
 				},
 				'cols' : 3
 			}
@@ -120,8 +120,8 @@ class OfflineUI(QWidget):
 			'Bilateral filter' : {
 				'objects' : {
 					'diameter' : create_slider(1, 10, default_value = 5),
-					'sigma' : create_slider(1, 300, tick_interval = 10, default_value = 30),
-					'border' : create_combobox(['DEFAULT', 'CONSTANT', 'REPLICATE', 'WRAP', 'REFLECT', 'TRANSPARENT', 'ISOLATED'])
+					'sigma' : create_slider(1, 300, tick_interval = 10, default_value = 30)
+#					'border' : create_combobox(['DEFAULT', 'CONSTANT', 'REPLICATE', 'WRAP', 'REFLECT', 'TRANSPARENT', 'ISOLATED'])
 				},
 				'cols' : 3
 			}
