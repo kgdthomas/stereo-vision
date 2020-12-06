@@ -141,8 +141,8 @@ class OfflineUI(QWidget):
 		}
 
 		self.crop_sliders = {			#Limites de recortado
-			'x1' : create_slider(0, 640), 'x2' : create_slider(0, 640, default_value = 640),
-			'y1' : create_slider(0, 640), 'y2' : create_slider(0, 640, default_value = 640)
+			'x1' : create_slider(0, 640, tick_interval=20), 'x2' : create_slider(0, 640, default_value=640, tick_interval=20),
+			'y1' : create_slider(0, 640, tick_interval=20), 'y2' : create_slider(0, 640, default_value=640, tick_interval=20)
 		}
 		self.apply_crop_checkbox = QCheckBox("Apply crop")
 
