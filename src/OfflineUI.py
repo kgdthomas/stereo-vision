@@ -430,7 +430,7 @@ class OfflineUI(QWidget):
 
 	def _save_current(self):
 		#Get path and create a new folder
-		path = '{}/{}'.format(self.load_config['path'].text(), int(dt.now().timestamp()))
+		path = '{}/{}'.format(self.save_current_path.text(), int(dt.now().timestamp()))
 		os.mkdir(path)
 		if self.verbose: print('Created folder at {}'.format(path))
 
